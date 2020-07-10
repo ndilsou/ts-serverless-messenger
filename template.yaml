@@ -1,0 +1,200 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  simple-websockets-chat-app
+
+  SAM Template for simple-websockets-chat-app that has the DynamoDB table and Lambda
+  functions needed to demonstrate the Websocket protocol on API Gateway.
+
+# Parameters:
+  # TableName:
+  #   Type: String
+  #   Default: 'simplechat_connections'
+  #   Description: (Required) The name of the new DynamoDB to store connection identifiers for each connected clients. Minimum 3 characters
+  #   MinLength: 3
+  #   MaxLength: 50
+  #   AllowedPattern: ^[A-Za-z_]+$
+  #   ConstraintDescription: 'Required. Can be characters and underscore only. No numbers or special characters allowed.'
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 128
+    Runtime: nodejs12.x
+
+Resources:
+  ServerlessWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: serveless-messenger
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ServerlessWebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target: !Sub "integrations/${WebSocketInteg}"  
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ServerlessWebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target: !Sub "integrations/${WebSocketInteg}"  
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ServerlessWebSocketApi
+      RouteKey: $default
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target: !Sub "integrations/${WebSocketInteg}"  
+
+  WebSocketInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ServerlessWebSocketApi
+      Description: Websocket Handler Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: 
+        Fn::Sub:
+            arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandleWebSocketFunction.Arn}/invocations
+
+  Deployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+    - ConnectRoute
+    - DefaultRoute
+    - DisconnectRoute
+    Properties:
+      ApiId: !Ref ServerlessWebSocketApi
+
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: Prod
+      Description: Prod Stage
+      DeploymentId: !Ref Deployment
+      ApiId: !Ref ServerlessWebSocketApi
+
+  # Table:
+  #   Type: AWS::DynamoDB::Table
+  #   Properties:
+  #     AttributeDefinitions:
+  #     - AttributeName: "PK"
+  #       AttributeType: "S"
+  #     - AttributeName: "SK1"
+  #       AttributeType: "S"
+  #     # - AttributeName: "SK2"
+  #     #   AttributeType: "N"
+  #     KeySchema:
+  #     - AttributeName: "PK"
+  #       KeyType: "HASH"
+  #     - AttributeName: "SK1"
+  #       KeyType: "RANGE"
+  #     ProvisionedThroughput:
+  #       ReadCapacityUnits: 5
+  #       WriteCapacityUnits: 5
+  #     SSESpecification:
+  #       SSEEnabled: True
+  #     TableName: !Ref TableName
+
+  HandleWebSocketFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handleWebSocket
+      Handler: index.handler
+      # MemorySize: 128
+      # Runtime: nodejs12.x
+      # Environment:
+      #   Variables:
+      #     TABLE_NAME: !Ref TableName
+      Policies:
+      # - DynamoDBCrudPolicy:
+      #     TableName: !Ref TableName
+      - Statement:
+        - Effect: Allow
+          Action:
+          - 'execute-api:ManageConnections'
+          Resource:
+          - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServerlessWebSocketApi}/*'
+
+  HandleWebSocketPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - ServerlessWebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref HandleWebSocketFunction
+      Principal: apigateway.amazonaws.com
+
+  HandleHttpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/handleHttp
+      Handler: index.handler
+      # MemorySize: 128
+      # Runtime: nodejs12.x
+      # Environment:
+      #   Variables:
+      #     TABLE_NAME: !Ref TableName
+      Policies:
+      # - DynamoDBCrudPolicy:
+      #     TableName: !Ref TableName
+      - Statement:
+        - Effect: Allow
+          Action:
+          - 'execute-api:ManageConnections'
+          Resource:
+          - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServerlessWebSocketApi}/*'
+      Events:
+        CreateUserEvent:
+          Type: HttpApi
+          Properties:
+            Path: /users
+            Method: post
+        GetUserEvent:
+          Type: HttpApi
+          Properties:
+            Path: /users/{id}
+            Method: get
+        CreateConversationEvent:
+          Type: HttpApi
+          Properties:
+            Path: /conversations
+            Method: post
+        GetAllConversationEventsEvent:
+          Type: HttpApi
+          Properties:
+            Path: /conversations/{id}/events
+            Method: get
+
+
+Outputs:
+  # TableArn:
+  #   Description: "Connections table ARN"
+  #   Value: !GetAtt ConnectionsTable.Arn
+
+  HandleWebSocketFunctionArn:
+    Description: "handleWebSocket function ARN"
+    Value: !GetAtt HandleWebSocketFunction.Arn
+
+  HandleHttpFunctionArn:
+    Description: "handleHttp function ARN"
+    Value: !GetAtt HandleHttpFunction.Arn
+
+  WebSocketURI:
+    Description: "The WSS Protocol URI to connect to"
+    # Value: !Join [ '', [ 'wss://', !Ref WebSocketApi, '.execute-api.',!Ref 'AWS::Region','.amazonaws.com/',!Ref 'Stage'] ]
+    Value: !Sub "wss://${ServerlessWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+
+  HttpURI:
+    Description: "API Gateway endpoint URL for the current stage of the LocalPulication function"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"

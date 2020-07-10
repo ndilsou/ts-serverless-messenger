@@ -1,0 +1,11 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "serverless-messenger"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-104k9d32q6ibj"
+s3_prefix = "serverless-messenger"
+region = "eu-west-2"
+profile = "perso"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
