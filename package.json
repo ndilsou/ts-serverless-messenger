@@ -16,7 +16,7 @@
     "@types/node": "^14.0.20",
     "@typescript-eslint/eslint-plugin": "^3.6.0",
     "aws-sam-webpack-plugin": "^0.6.0",
-    "aws-sdk": "^2.713.0",
+    "aws-sdk": "^2.717.0",
     "aws-sdk-mock": "^5.1.0",
     "jest": "^26.1.0",
     "source-map-support": "^0.5.19",
@@ -26,5 +26,9 @@
     "typescript": "^3.9.6",
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.12"
+  },
+  "dependencies": {
+    "axios": "^0.19.2",
+    "fp-ts": "^2.7.0"
   }
 }
