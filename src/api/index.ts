@@ -6,3 +6,8 @@ export const handler = async (
     console.log(event)
     return {statusCode: 200, body: "WOW!"}
 }
+
+export const dispatch = async (event: APIGatewayEvent) => {
+  
+
+}
