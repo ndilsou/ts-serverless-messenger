@@ -3,7 +3,7 @@
   "ModelMetadata": {
     "Author": "Ndil-Adjim Sou Ngadoy",
     "DateCreated": "Jul 14, 2020, 06:35 PM",
-    "DateLastModified": "Jul 21, 2020, 08:35 PM",
+    "DateLastModified": "Jul 21, 2020, 09:02 PM",
     "Description": "Data Model for a serverless messaging app",
     "Version": "1.0"
   },
@@ -48,6 +48,14 @@
         {
           "AttributeName": "connId",
           "AttributeType": "S"
+        },
+        {
+          "AttributeName": "avatarUrl",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "alias",
+          "AttributeType": "S"
         }
       ],
       "TableFacets": [
@@ -76,25 +84,10 @@
           "NonKeyAttributes": [
             "data",
             "createdDate",
-            "updatedDate"
-          ],
-          "DataAccess": {
-            "MySql": {}
-          }
-        },
-        {
-          "FacetName": "Connection",
-          "KeyAttributeAlias": {
-            "PartitionKeyAlias": "Cid",
-            "SortKeyAlias": "ConId"
-          },
-          "TableData": [],
-          "NonKeyAttributes": [
-            "userId"
-          ],
-          "DataAccess": {
-            "MySql": {}
-          }
+            "updatedDate",
+            "avatarUrl",
+            "alias"
+          ]
         },
         {
           "FacetName": "User",
@@ -126,11 +119,9 @@
             "data",
             "createdDate",
             "updatedDate",
-            "email"
-          ],
-          "DataAccess": {
-            "MySql": {}
-          }
+            "email",
+            "avatarUrl"
+          ]
         },
         {
           "FacetName": "Event",
@@ -179,10 +170,7 @@
             "userId",
             "data",
             "action"
-          ],
-          "DataAccess": {
-            "MySql": {}
-          }
+          ]
         },
         {
           "FacetName": "Participant",
@@ -234,10 +222,7 @@
             "updatedDate",
             "email",
             "connId"
-          ],
-          "DataAccess": {
-            "MySql": {}
-          }
+          ]
         },
         {
           "FacetName": "UserConversations",
@@ -260,10 +245,7 @@
           ],
           "NonKeyAttributes": [
             "createdDate"
-          ],
-          "DataAccess": {
-            "MySql": {}
-          }
+          ]
         }
       ],
       "DataAccess": {
