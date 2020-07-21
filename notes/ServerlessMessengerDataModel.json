@@ -1,0 +1,274 @@
+{
+  "ModelName": "Messenger",
+  "ModelMetadata": {
+    "Author": "Ndil-Adjim Sou Ngadoy",
+    "DateCreated": "Jul 14, 2020, 06:35 PM",
+    "DateLastModified": "Jul 21, 2020, 08:35 PM",
+    "Description": "Data Model for a serverless messaging app",
+    "Version": "1.0"
+  },
+  "DataModel": [
+    {
+      "TableName": "Messenger",
+      "KeyAttributes": {
+        "PartitionKey": {
+          "AttributeName": "PK",
+          "AttributeType": "S"
+        },
+        "SortKey": {
+          "AttributeName": "SK",
+          "AttributeType": "S"
+        }
+      },
+      "NonKeyAttributes": [
+        {
+          "AttributeName": "userId",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "data",
+          "AttributeType": "M"
+        },
+        {
+          "AttributeName": "createdDate",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "updatedDate",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "action",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "email",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "connId",
+          "AttributeType": "S"
+        }
+      ],
+      "TableFacets": [
+        {
+          "FacetName": "Conversation",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "Cid",
+            "SortKeyAlias": "Cid"
+          },
+          "TableData": [
+            {
+              "PK": {
+                "S": "CONVO#1"
+              },
+              "SK": {
+                "S": "CONVO#1"
+              },
+              "createdDate": {
+                "S": "2020-03-12"
+              },
+              "updatedDate": {
+                "S": "2020-03-12"
+              }
+            }
+          ],
+          "NonKeyAttributes": [
+            "data",
+            "createdDate",
+            "updatedDate"
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
+        },
+        {
+          "FacetName": "Connection",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "Cid",
+            "SortKeyAlias": "ConId"
+          },
+          "TableData": [],
+          "NonKeyAttributes": [
+            "userId"
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
+        },
+        {
+          "FacetName": "User",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "UserId",
+            "SortKeyAlias": "UserId"
+          },
+          "TableData": [
+            {
+              "PK": {
+                "S": "USER#12"
+              },
+              "SK": {
+                "S": "USER#12"
+              },
+              "createdDate": {
+                "S": "2020-03-02"
+              },
+              "updatedDate": {
+                "S": "2020-03-02"
+              },
+              "email": {
+                "S": "nasoungadoy@gmail.com"
+              }
+            },
+            {}
+          ],
+          "NonKeyAttributes": [
+            "data",
+            "createdDate",
+            "updatedDate",
+            "email"
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
+        },
+        {
+          "FacetName": "Event",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "Cid",
+            "SortKeyAlias": "Timestamp"
+          },
+          "TableData": [
+            {
+              "PK": {
+                "S": "EVENT.3"
+              },
+              "SK": {
+                "S": "1232"
+              },
+              "userId": {
+                "S": "12"
+              },
+              "action": {
+                "S": "joinConversation"
+              }
+            },
+            {
+              "PK": {
+                "S": "EVENT.2"
+              },
+              "SK": {
+                "S": "1234"
+              },
+              "userId": {
+                "S": "12"
+              },
+              "data": {
+                "M": {
+                  "Text": {
+                    "S": "Welcome!"
+                  }
+                }
+              },
+              "action": {
+                "S": "sendMessage"
+              }
+            }
+          ],
+          "NonKeyAttributes": [
+            "userId",
+            "data",
+            "action"
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
+        },
+        {
+          "FacetName": "Participant",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "Cid",
+            "SortKeyAlias": "UserId"
+          },
+          "TableData": [
+            {
+              "PK": {
+                "S": "CONVO#1"
+              },
+              "SK": {
+                "S": "USER#12"
+              },
+              "createdDate": {
+                "S": "2020-06-12T12:12:12"
+              },
+              "updatedDate": {
+                "S": "2020-06-12T12:12:12"
+              },
+              "email": {
+                "S": "nasoungadoy@gmail.com"
+              },
+              "connId": {
+                "S": "123441asq"
+              }
+            },
+            {
+              "PK": {
+                "S": "CONVO#1"
+              },
+              "SK": {
+                "S": "USER#13"
+              },
+              "createdDate": {
+                "S": "2020-06-12T12:12:12"
+              },
+              "updatedDate": {
+                "S": "2020-06-12T12:12:12"
+              },
+              "email": {
+                "S": "yolo@gmail.com"
+              }
+            }
+          ],
+          "NonKeyAttributes": [
+            "createdDate",
+            "updatedDate",
+            "email",
+            "connId"
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
+        },
+        {
+          "FacetName": "UserConversations",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "userId",
+            "SortKeyAlias": "Cid"
+          },
+          "TableData": [
+            {
+              "PK": {
+                "S": "USER#12"
+              },
+              "SK": {
+                "S": "CONVO#1"
+              },
+              "createdDate": {
+                "S": "2020-05-12T12:12:12"
+              }
+            }
+          ],
+          "NonKeyAttributes": [
+            "createdDate"
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
+        }
+      ],
+      "DataAccess": {
+        "MySql": {}
+      }
+    }
+  ]
+}
