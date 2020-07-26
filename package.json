@@ -7,12 +7,13 @@
     "watch": "webpack -w",
     "start:db": "./scripts/./start_ddb.sh",
     "test": "jest --testPathIgnorePatterns=tests/integration/",
-    "test:integration": "jest --testPathPattern=tests/integration/",
+    "test:integration": "jest --config=jest.integration.config.js --no-cache",
     "test:watch": "jest --watch=all"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@shelf/jest-dynamodb": "^1.7.0",
     "@types/aws-lambda": "^8.10.58",
     "@types/crypto-js": "^3.1.47",
     "@types/jest": "^26.0.4",
@@ -25,6 +26,7 @@
     "aws-sdk": "^2.717.0",
     "aws-sdk-mock": "^5.1.0",
     "jest": "^26.1.0",
+    "jest-dynalite": "^3.0.0",
     "sinon": "^9.0.2",
     "source-map-support": "^0.5.19",
     "ts-jest": "^26.1.1",

@@ -24,9 +24,15 @@ export class DdbUserRepository implements UserRepository {
     if (!output.Item) {
       throw new Error("Missing User");
     }
-    const { PK: _pk, SK: _sk, ...userAttrs } = output.Item;
 
-    return { ...userAttrs, id: userId } as User;
+    const [_pk, attrs] = DbUtils.parseAttributes<Omit<User, "id">>(
+      output.Item as DbUtils.DynamoItem
+    );
+
+    return {
+      ...attrs,
+      id: userId,
+    };
   }
 
   async removeUser(userId: string): Promise<User> {
@@ -41,9 +47,15 @@ export class DdbUserRepository implements UserRepository {
     if (!output.Attributes) {
       throw new Error("Missing User");
     }
-    const { PK: _pk, SK: _sk, ...userAttrs } = output.Attributes;
 
-    return { ...userAttrs, id: userId } as User;
+    const [_pk, attrs] = DbUtils.parseAttributes<Omit<User, "id">>(
+      output.Attributes as DbUtils.DynamoItem
+    );
+
+    return {
+      ...attrs,
+      id: userId,
+    };
   }
 
   async createUser(userDto: CreateUpdateUserDto): Promise<User> {
@@ -101,36 +113,13 @@ export class DdbUserRepository implements UserRepository {
     };
   }
 
-  // async updateUser(
-  //   userId: string,
-  //   userDto: CreateUpdateUserDto
-  // ): Promise<User> {
-  //   const date = new Date();
-  //   const key = { HK: `USER#${userId}`, SK: `USER#${userId}` };
-  //   const item = {
-  //     ...userDto,
-  //     updatedDate: date.toISOString(),
-  //   };
-  //   const expr = DbUtils.compileUpdateExpression(item);
-  //   const response = await this.client
-  //     .update({ TableName: this.tableName, Key: key, ...expr })
-  //     .promise();
-
-  //   return {
-  //     ...userDto,
-  //     id: userId,
-  //     createdDate: date,
-  //     updatedDate: date,
-  //   };
-  // }
-
-  async getUserConversations(userid: string): Promise<UserConversation[]> {
-    const keyConditionExpression = "";
+  async getUserConversations(userId: string): Promise<UserConversation[]> {
+    const keyConditionExpression = `HK = :hk, begins_with(SK, :sk)`;
     const { Items: items } = await this.client
       .query({
         TableName: this.tableName,
         KeyConditionExpression: keyConditionExpression,
-        ExpressionAttributeValues: {},
+        ExpressionAttributeValues: { ":hk": `USER#${userId}`, ":sk": "CONVO" },
       })
       .promise();
     return items ? items.map((a) => a as UserConversation) : [];

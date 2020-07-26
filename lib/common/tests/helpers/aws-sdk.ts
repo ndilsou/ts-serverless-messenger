@@ -1,6 +1,9 @@
 import * as AWSMock from "aws-sdk-mock";
 import * as AWS from "aws-sdk";
-import { PutItemInput, DocumentClient } from "aws-sdk/clients/dynamodb";
+import { DocumentClient } from "aws-sdk/clients/dynamodb";
+
+import * as Constants from './constants'
+import { makeId } from "./utilities";
 
 export const buildMockDocumentClient = (
   method: keyof DocumentClient,
@@ -41,4 +44,45 @@ export class MockDocumentClientBuilder {
       endpoint: this.endpoint,
     });
   }
+}
+
+export const setupDdb = async (tableName?: string): Promise<string> => {
+  tableName = makeId(6)
+  console.log(tableName)
+  const ddb = new AWS.DynamoDB(Constants.DDB_OPTIONS);
+  var params = {
+    AttributeDefinitions: [
+      {
+        AttributeName: "HK",
+        AttributeType: "S",
+      },
+      {
+        AttributeName: "SK",
+        AttributeType: "S",
+      },
+    ],
+    KeySchema: [
+      {
+        AttributeName: "HK",
+        KeyType: "HASH",
+      },
+      {
+        AttributeName: "SK",
+        KeyType: "RANGE",
+      },
+    ],
+    ProvisionedThroughput: {
+      ReadCapacityUnits: 5,
+      WriteCapacityUnits: 5,
+    },
+    TableName: tableName,
+  };
+
+  await ddb.createTable(params).promise();
+  return tableName
+}
+
+export const teardownDDb = async (tableName: string) => {
+  const ddb = new AWS.DynamoDB(Constants.DDB_OPTIONS);
+  await ddb.deleteTable({ TableName: tableName }).promise();
 }

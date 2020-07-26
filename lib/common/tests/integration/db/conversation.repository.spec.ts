@@ -1,0 +1,125 @@
+import * as AWSMock from "aws-sdk-mock";
+import * as AWS from "aws-sdk";
+import { DocumentClient } from "aws-sdk/clients/dynamodb";
+
+import { DdbConversationRepository } from "../../../common/db/conversation.repository";
+
+import * as AWSTestUtils from "../../helpers/aws-sdk";
+import * as Constants from "../../helpers/constants";
+import { DdbUserRepository } from "../../../common/db/user.repository";
+
+  describe("DdbConversationRepository integration with the database", () => {
+    let userRepo: DdbUserRepository;
+    let convoRepo: DdbConversationRepository;
+    let tableName: string;
+    let client: DocumentClient;
+
+    beforeEach(async () => {
+      tableName = await AWSTestUtils.setupDdb();
+      client = new DocumentClient(Constants.DDB_OPTIONS);
+      userRepo = new DdbUserRepository({
+        client,
+        tableName,
+      });
+
+      convoRepo = new DdbConversationRepository({
+        client,
+        tableName,
+      });
+    });
+    afterEach(async () => await AWSTestUtils.teardownDDb(tableName));
+
+    it("when calling createConversation, creates a new conversation", async () => {
+      // GIVEN
+      const convoAttrs = { alias: "Me And My Friends" };
+
+      // WHEN
+      const out = await convoRepo.createConversation(convoAttrs);
+
+      // THEN
+      expect(out).toMatchObject(convoAttrs);
+      expect(out.id).toBeDefined();
+      expect(out.createdDate).toBeDefined();
+      expect(out.updatedDate).toBeDefined();
+      expect(out.updatedDate).toStrictEqual(out.createdDate);
+    });
+
+    it("when calling createParticipant, adds a new participant", async () => {
+      // GIVEN
+      const user = await userRepo.createUser({ email: "a@gmail.com" });
+
+      // WHEN
+      const convo = await convoRepo.createConversation();
+      const out = await convoRepo.createParticipant(convo.id, user);
+
+      // THEN
+      expect(out).toMatchObject({
+        convoId: convo.id,
+        userId: user.id,
+        email: user.email,
+      });
+      expect(out.createdDate).toBeDefined();
+      expect(out.updatedDate).toBeDefined();
+      expect(out.updatedDate).toStrictEqual(out.createdDate);
+    });
+
+    it("when calling createParticipant, adds a new participant", async () => {
+      // GIVEN
+      const user = await userRepo.createUser({ email: "a@gmail.com" });
+
+      // WHEN
+      const convo = await convoRepo.createConversation();
+      const out = await convoRepo.createParticipant(convo.id, user);
+
+      // THEN
+      expect(out).toMatchObject({
+        convoId: convo.id,
+        userId: user.id,
+        email: user.email,
+      });
+      expect(out.createdDate).toBeDefined();
+      expect(out.updatedDate).toBeDefined();
+      expect(out.updatedDate).toStrictEqual(out.createdDate);
+    });
+
+    // it("when calling replaceUser, replace the user info", async () => {
+    //   // GIVEN
+    //   const userIn = {
+    //     email: "johnjohn@gmail.com",
+    //   };
+    //   const { id: userId, ...dto } = await repository.createUser(userIn);
+    //   const newEmail = "cheval@yahoo.fr";
+    //   dto.email = newEmail;
+
+    //   // WHEN
+    //   const updatedUser = await repository.replaceUser(userId, dto);
+
+    //   // then
+    //   expect(updatedUser).toMatchObject({ id: userId, email: newEmail });
+    // });
+
+    // it("when calling replaceUser on a missing user, throws error", async () => {
+    //   expect(
+    //     repository.replaceUser("missingID", { email: "JohnJhon2" })
+    //   ).rejects.toThrow();
+    // });
+
+    // it("when calling removeUser, removes the user from the database", async () => {
+    //   // GIVEN
+    //   const user = await repository.createUser({
+    //     email: "johnjohn@gmail.com",
+    //   });
+
+    //   // WHEN
+    //   const removedUser = await repository.removeUser(user.id);
+
+    //   // THEN
+    //   expect(removedUser).toStrictEqual(user);
+
+    //   AWSMock.restore();
+    // });
+
+    // it("when calling removeUser on a missing user, throws error", async () => {
+    //   expect(repository.removeUser("missingID")).rejects.toThrow();
+    // });
+  });

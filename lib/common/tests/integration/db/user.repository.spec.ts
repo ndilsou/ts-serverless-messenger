@@ -1,79 +1,47 @@
+// import "jest-dynalite/withDb";
 import * as AWSMock from "aws-sdk-mock";
 import * as AWS from "aws-sdk";
 import { DocumentClient } from "aws-sdk/clients/dynamodb";
 
 import { DdbUserRepository } from "../../../common/db/user.repository";
-import { PutItemInput, GetItemInput } from "aws-sdk/clients/dynamodb";
 
 import * as AWSTestUtils from "../../helpers/aws-sdk";
 import * as Constants from "../../helpers/constants";
-import sinon from "sinon";
+import { DdbConversationRepository } from "../../../common/db/conversation.repository";
 
-describe("DdbUserRepository", () => {
-  beforeAll(async () => {
-    const ddb = new AWS.DynamoDB({
-      endpoint: "http://localhost:8000",
-      apiVersion: "2012-08-10",
-      region: "eu-west-2",
+describe("DdbUserRepository integration with the database", () => {
+  let tableName: string;
+  let client: DocumentClient;
+  let userRepo: DdbUserRepository;
+  let convoRepo: DdbConversationRepository;
+
+  beforeEach(async () => {
+    tableName = await AWSTestUtils.setupDdb();
+    client = new DocumentClient(Constants.DDB_OPTIONS);
+
+    console.log(`beforeEach: ${tableName}`);
+    userRepo = new DdbUserRepository({
+      client,
+      tableName,
     });
-    var params = {
-      AttributeDefinitions: [
-        {
-          AttributeName: "HK",
-          AttributeType: "S",
-        },
-        {
-          AttributeName: "SK",
-          AttributeType: "S",
-        },
-      ],
-      KeySchema: [
-        {
-          AttributeName: "HK",
-          KeyType: "HASH",
-        },
-        {
-          AttributeName: "SK",
-          KeyType: "RANGE",
-        },
-      ],
-      ProvisionedThroughput: {
-        ReadCapacityUnits: 5,
-        WriteCapacityUnits: 5,
-      },
-      TableName: Constants.TABLE_NAME,
-    };
 
-    await ddb.createTable(params).promise();
-  });
-  afterAll(async () => {
-    const ddb = new AWS.DynamoDB({
-      endpoint: "http://localhost:8000",
-      apiVersion: "2012-08-10",
-      region: "eu-west-2",
+    convoRepo = new DdbConversationRepository({
+      client,
+      tableName,
     });
-    await ddb.deleteTable({ TableName: Constants.TABLE_NAME }).promise();
   });
-
-  const client = new DocumentClient({
-    endpoint: "http://localhost:8000",
-    apiVersion: "2012-08-10",
-    region: "eu-west-2",
-  });
-
-  const repository = new DdbUserRepository({
-    client,
-    tableName: Constants.TABLE_NAME,
-  });
+  afterEach(async () => await AWSTestUtils.teardownDDb(tableName));
 
   it("when calling createUser, creates a new user", async () => {
     // GIVEN
     const userIn = {
       email: "johnjohn@gmail.com",
     };
-
+    console.log(Constants.DDB_OPTIONS);
+    const ddb = new AWS.DynamoDB(Constants.DDB_OPTIONS);
+    console.log(await ddb.listTables().promise());
     // WHEN
-    const userOut = await repository.createUser(userIn);
+    const userOut = await userRepo.createUser(userIn);
 
     // THEN
     expect(userOut).toMatchObject(userIn);
@@ -88,39 +56,45 @@ describe("DdbUserRepository", () => {
     const userIn = {
       email: "johnjohn@gmail.com",
     };
-    const { id: userId, ...dto } = await repository.createUser(userIn);
+    const { id: userId, ...dto } = await userRepo.createUser(userIn);
     const newEmail = "cheval@yahoo.fr";
     dto.email = newEmail;
+    console.log(Constants.DDB_OPTIONS);
+    const ddb = new AWS.DynamoDB(Constants.DDB_OPTIONS);
+    console.log(await ddb.listTables().promise());
 
     // WHEN
-    const updatedUser = await repository.replaceUser(userId, dto);
+    console.log(`replaceUser: ${tableName}`);
+    const updatedUser = await userRepo.replaceUser(userId, dto);
 
-    // then
+    // THEN
     expect(updatedUser).toMatchObject({ id: userId, email: newEmail });
   });
 
   it("when calling replaceUser on a missing user, throws error", async () => {
     expect(
-      repository.replaceUser("missingID", { email: "JohnJhon2" })
+      userRepo.replaceUser("missingID", { email: "JohnJhon2" })
     ).rejects.toThrow();
   });
 
   it("when calling removeUser, removes the user from the database", async () => {
     // GIVEN
-    const user = await repository.createUser({
+    const user = await userRepo.createUser({
       email: "johnjohn@gmail.com",
     });
+    console.log(Constants.DDB_OPTIONS);
+    const ddb = new AWS.DynamoDB(Constants.DDB_OPTIONS);
+    console.log(await ddb.listTables().promise());
 
     // WHEN
-    const removedUser = await repository.removeUser(user.id);
+    const removedUser = await userRepo.removeUser(user.id);
 
     // THEN
     expect(removedUser).toStrictEqual(user);
-
-    AWSMock.restore();
   });
 
   it("when calling removeUser on a missing user, throws error", async () => {
-    expect(repository.removeUser("missingID")).rejects.toThrow();
+    expect(userRepo.removeUser("missingID")).rejects.toThrow();
   });
 });
+// });

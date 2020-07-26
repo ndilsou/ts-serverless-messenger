@@ -5,6 +5,7 @@ import {
   Events,
   Conversation,
   EventBase,
+  ParticipantRole,
 } from "../entities";
 
 export type CreateUpdateUserDto = {
@@ -18,11 +19,11 @@ export interface UserRepository {
   removeUser(userId: string): Promise<User>;
   createUser(userDto: CreateUpdateUserDto): Promise<User>;
   replaceUser(userId: string, userDto: CreateUpdateUserDto): Promise<User>;
-  // updateUser(userId: string, userDto: CreateUpdateUserDto): Promise<User>;
   getUserConversations(userid: string): Promise<UserConversation[]>;
 }
 
-export type AddConnectionOptions = {
+export type AddConnectionProps = {
+  convoId: string;
   userId: string;
   connId: string;
 };
@@ -33,16 +34,26 @@ export type GetEventsOptions = {
   limit?: number;
 };
 
+export type CreateUpdateConversationDto = {
+  alias?: string,
+  avatarUrl?: string,
+};
+
+
 export interface ConversationRepository {
-  createParticipant(convoId: string, user: User): Promise<Participant>;
+  createParticipant(convoId: string, user: User, role?: ParticipantRole): Promise<Participant>;
   removeParticipant(convoId: string, userId: string): Promise<Participant>;
   createConnection(
-    convoId: string,
-    options: AddConnectionOptions
+    props: AddConnectionProps
   ): Promise<Participant>;
   removeConnection(convoId: string, userId: string): Promise<Participant>;
   getParticipants(convoId: string): Promise<Participant[]>;
-  createConversation(...users: User[]): Promise<[Conversation, Participant[]]>;
+  createConversation(
+    convoDto?: CreateUpdateConversationDto
+  ): Promise<Conversation>;
+  removeConversation(
+    convoId: string
+  ): Promise<Conversation>;
   // Not sure it can handle multiple types. Maybe working with EventBase is better.
   getAllEvents(convoId: string): Promise<Events[keyof Events][]>;
   getEvents(

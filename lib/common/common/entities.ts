@@ -42,7 +42,10 @@ export interface Participant {
   email: string;
   createdDate: Date;
   updatedDate: Date;
+  role?: ParticipantRole
 }
+
+export type ParticipantRole = "administrator"
 
 /**
  * A reference to a conversation a user has joined.
@@ -54,6 +57,7 @@ export interface UserConversation {
   userId: string;
   convoId: string;
   createdDate: Date;
+  updatedDate: Date;
 }
 
 /**
