@@ -48,7 +48,6 @@ export class MockDocumentClientBuilder {
 
 export const setupDdb = async (tableName?: string): Promise<string> => {
   tableName = makeId(6)
-  console.log(tableName)
   const ddb = new AWS.DynamoDB(Constants.DDB_OPTIONS);
   var params = {
     AttributeDefinitions: [
