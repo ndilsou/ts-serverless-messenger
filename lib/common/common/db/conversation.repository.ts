@@ -13,7 +13,6 @@ import {
 } from "../entities";
 import * as DbUtils from "./utilities";
 import { DocumentClient } from "aws-sdk/clients/dynamodb";
-import { userInfo } from "os";
 
 export interface DdbConversationRepositoryProps {
   client: DocumentClient;
@@ -23,6 +22,8 @@ export interface DdbConversationRepositoryProps {
 export class DdbConversationRepository implements ConversationRepository {
   private readonly client: DocumentClient;
   private readonly tableName: string;
+  private readonly hashLength: number = 16;
+
   constructor({ client, tableName }: DdbConversationRepositoryProps) {
     this.client = client;
     this.tableName = tableName;
@@ -31,7 +32,7 @@ export class DdbConversationRepository implements ConversationRepository {
   async createParticipant(
     convoId: string,
     user: User,
-    role?: ParticipantRole
+    role: ParticipantRole = "default"
   ): Promise<Participant> {
     const date = new Date();
     const id = DbUtils.generateId();
@@ -48,9 +49,9 @@ export class DdbConversationRepository implements ConversationRepository {
       convoId,
       userId: user.id,
       email: user.email,
-      role,
       createdDate: date,
       updatedDate: date,
+      role,
     };
   }
 
@@ -58,11 +59,57 @@ export class DdbConversationRepository implements ConversationRepository {
     convoId: string,
     userId: string
   ): Promise<Participant> {
-    throw new Error("Method not implemented.");
+    const primaryKey = { HK: `CONVO#${convoId}`, SK: `USER#${userId}` };
+    const output = await this.client
+      .delete({
+        TableName: this.tableName,
+        Key: primaryKey,
+        ReturnValues: "ALL_OLD",
+      })
+      .promise();
+    if (!output.Attributes) {
+      throw new Error("Missing User");
+    }
+
+    const [_pk, attrs] = DbUtils.parseAttributes<
+      Omit<Participant, "convoId" | "userId">
+    >(output.Attributes as DbUtils.DynamoItem);
+
+    return {
+      convoId,
+      userId,
+      ...attrs,
+    };
   }
 
   async getParticipants(convoId: string): Promise<Participant[]> {
-    throw new Error("Method not implemented.");
+    const output = await this.client
+      .query({
+        TableName: this.tableName,
+        KeyConditionExpression: "HK = :hk, begins_with(SK, :sk)",
+        ExpressionAttributeValues: {
+          ":hk": `CONVO#${convoId}`,
+          ":sk": `USER#`,
+        },
+      })
+      .promise();
+
+    if (typeof output.Items === "undefined") {
+      throw new Error(
+        `Failed to load participants for conversation ${convoId}`
+      );
+    }
+
+    const participants = output.Items.map((item) =>
+      DbUtils.parseAttributes<Omit<Participant, "convoId" | "userId">>(
+        item as DbUtils.DynamoItem
+      )
+    ).map(([pk, participant]) => {
+      const userId = pk.SK.split("#")[1];
+      return { convoId, userId, ...participant };
+    });
+    console.log(participants);
+    return participants;
   }
 
   async createConnection({
@@ -79,10 +126,21 @@ export class DdbConversationRepository implements ConversationRepository {
         TableName: this.tableName,
         Key: key,
         UpdateExpression: "SET connId = :connId",
-        ExpressionAttributeValues: { ":connId": connId },
-        ReturnValues: "UPDATED_NEW",
+        ConditionExpression: "HK = :hk and SK = :sk",
+        ExpressionAttributeValues: {
+          ":connId": connId,
+          ":hk": key.HK,
+          ":sk": key.SK,
+        },
+        ReturnValues: "ALL_NEW",
       })
       .promise();
+
+    if (!output.Attributes) {
+      throw new Error(
+        `Missing participant ${userId} in conversation ${convoId}`
+      );
+    }
     const [_pk, attrs] = DbUtils.parseAttributes<
       Omit<Participant, "convoId" | "userId">
     >(output.Attributes as DbUtils.DynamoItem);
@@ -98,7 +156,30 @@ export class DdbConversationRepository implements ConversationRepository {
     convoId: string,
     userId: string
   ): Promise<Participant> {
-    throw new Error("Method not implemented.");
+    const key = {
+      HK: `CONVO#${convoId}`,
+      SK: `USER#${userId}`,
+    };
+    const output = await this.client
+      .update({
+        TableName: this.tableName,
+        Key: key,
+        UpdateExpression: "REMOVE connId SET updatedDate = :u",
+        ExpressionAttributeValues: {
+          ":u": new Date().toISOString(),
+        },
+        ReturnValues: "ALL_NEW",
+      })
+      .promise();
+    const [_pk, attrs] = DbUtils.parseAttributes<
+      Omit<Participant, "convoId" | "userId">
+    >(output.Attributes as DbUtils.DynamoItem);
+
+    return {
+      convoId,
+      userId,
+      ...attrs,
+    };
   }
 
   async createConversation(
@@ -123,12 +204,16 @@ export class DdbConversationRepository implements ConversationRepository {
   }
 
   async removeConversation(convoId: string): Promise<Conversation> {
-    const key = {
+    const primaryKey = {
       HK: `CONVO#${convoId}`,
       SK: `CONVO#${convoId}`,
     };
     const output = await this.client
-      .delete({ Key: key, TableName: this.tableName, ReturnValues: "ALL_OLD" })
+      .delete({
+        Key: primaryKey,
+        TableName: this.tableName,
+        ReturnValues: "ALL_OLD",
+      })
       .promise();
 
     if (!output.Attributes) {
@@ -156,13 +241,30 @@ export class DdbConversationRepository implements ConversationRepository {
     throw new Error("Method not implemented.");
   }
 
-  async appendEvent(
-    convoId: string,
-    event: Events[keyof Events]
-  ): Promise<void> {
-    throw new Error("Method not implemented.");
+  async appendEvent({
+    action,
+    timestamp,
+    convoId,
+    userId,
+    ...data
+  }: Events[keyof Events]): Promise<void> {
+    const sortKey = `CONVO#${timestamp.toISOString()}`;
+    const hash = DbUtils.hashSortKey(sortKey, this.hashLength);
+    const date = new Date();
+    const item = {
+      HK: `CONVO#${convoId}.${hash}`,
+      SK: sortKey,
+      action,
+      userId,
+      data,
+    };
+
+    const output = await this.client
+      .put({ TableName: this.tableName, Item: item })
+      .promise();
+
+    if (!output.Attributes) {
+      throw new Error("Failed to insert the event");
+    }
   }
 }
-
-const isUser = (userOrId: User | string): userOrId is User =>
-  (userOrId as User).id !== undefined;

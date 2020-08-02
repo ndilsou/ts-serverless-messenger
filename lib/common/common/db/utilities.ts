@@ -35,3 +35,7 @@ export const parseAttributes = <T extends Attrs>(item: DynamoItem): [PrimaryKeyA
 
   return [primaryKey, parsedAttrs];
 };
+
+export const hashSortKey = (value: string, hashSize: number): number => {
+  return 0
+}
