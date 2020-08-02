@@ -19,7 +19,6 @@ describe("DdbUserRepository integration with the database", () => {
     tableName = await AWSTestUtils.setupDdb();
     client = new DocumentClient(Constants.DDB_OPTIONS);
 
-    console.log(`beforeEach: ${tableName}`);
     userRepo = new DdbUserRepository({
       client,
       tableName,
@@ -37,9 +36,7 @@ describe("DdbUserRepository integration with the database", () => {
     const userIn = {
       email: "johnjohn@gmail.com",
     };
-    console.log(Constants.DDB_OPTIONS);
-    const ddb = new AWS.DynamoDB(Constants.DDB_OPTIONS);
-    console.log(await ddb.listTables().promise());
+
     // WHEN
     const userOut = await userRepo.createUser(userIn);
 
@@ -59,12 +56,8 @@ describe("DdbUserRepository integration with the database", () => {
     const { id: userId, ...dto } = await userRepo.createUser(userIn);
     const newEmail = "cheval@yahoo.fr";
     dto.email = newEmail;
-    console.log(Constants.DDB_OPTIONS);
-    const ddb = new AWS.DynamoDB(Constants.DDB_OPTIONS);
-    console.log(await ddb.listTables().promise());
 
     // WHEN
-    console.log(`replaceUser: ${tableName}`);
     const updatedUser = await userRepo.replaceUser(userId, dto);
 
     // THEN
@@ -73,7 +66,9 @@ describe("DdbUserRepository integration with the database", () => {
 
   it("when calling replaceUser on a missing user, throws error", async () => {
     expect(
-      userRepo.replaceUser("missingID", { email: "JohnJhon2" })
+      userRepo.replaceUser("missingID", {
+        email: "JohnJhon2",
+      })
     ).rejects.toThrow();
   });
 
@@ -82,9 +77,6 @@ describe("DdbUserRepository integration with the database", () => {
     const user = await userRepo.createUser({
       email: "johnjohn@gmail.com",
     });
-    console.log(Constants.DDB_OPTIONS);
-    const ddb = new AWS.DynamoDB(Constants.DDB_OPTIONS);
-    console.log(await ddb.listTables().promise());
 
     // WHEN
     const removedUser = await userRepo.removeUser(user.id);
@@ -96,5 +88,62 @@ describe("DdbUserRepository integration with the database", () => {
   it("when calling removeUser on a missing user, throws error", async () => {
     expect(userRepo.removeUser("missingID")).rejects.toThrow();
   });
+
+  it("when adding a new conversation to a user, gets the userConvo", async () => {
+    // GIVEN
+    const user = await userRepo.createUser({
+      email: "johnjohn@gmail.com",
+    });
+
+    // WHEN
+    const userConvo = await userRepo.appendUserConversation(user.id, "123");
+
+    // THEN
+    expect(userConvo).toMatchObject({ userId: user.id, convoId: "123" });
+  });
+
+  it("when adding a new conversation to a user, ignores duplicates", async () => {
+    // GIVEN
+    const { id } = await userRepo.createUser({
+      email: "johnjohn@gmail.com",
+    });
+    const userConvo = await userRepo.appendUserConversation(id, "123");
+
+    // WHEN
+    await userRepo.appendUserConversation(id, "123");
+    const user = await userRepo.getUser(id);
+
+    // THEN
+    expect(user.conversations.length).toStrictEqual(1);
+  });
+
+  it("when asking for the conversations of a user, gets the list of UserConversation", async () => {
+    // GIVEN
+    const { id } = await userRepo.createUser({
+      email: "johnjohn@gmail.com",
+    });
+
+    const userConvo = await userRepo.appendUserConversation(id, "123");
+
+    // WHEN
+    const userConvos = await userRepo.getUserConversations(id);
+
+    // THEN
+    expect(userConvos).toStrictEqual([userConvo]);
+  });
+
+  it("can remove conversations from a user", async () => {
+    // GIVEN
+    const { id } = await userRepo.createUser({
+      email: "johnjohn@gmail.com",
+      conversations: ["123", "456"],
+    });
+
+    // WHEN
+    await userRepo.removeUserConversation(id, "123");
+    const userConvos = await userRepo.getUserConversations(id);
+
+    // THEN
+    expect(userConvos.length).toStrictEqual(1);
+  });
 });
-// });

@@ -25,6 +25,7 @@ export interface User {
   avatarUrl?: string;
   createdDate: Date;
   updatedDate: Date;
+  conversations: string[];
 }
 
 /**
@@ -42,10 +43,10 @@ export interface Participant {
   email: string;
   createdDate: Date;
   updatedDate: Date;
-  role?: ParticipantRole
+  role?: ParticipantRole;
 }
 
-export type ParticipantRole = "administrator"
+export type ParticipantRole = "administrator" | "default";
 
 /**
  * A reference to a conversation a user has joined.
@@ -56,8 +57,6 @@ export type ParticipantRole = "administrator"
 export interface UserConversation {
   userId: string;
   convoId: string;
-  createdDate: Date;
-  updatedDate: Date;
 }
 
 /**
@@ -76,6 +75,7 @@ export interface EventBase {
   id?: string;
   timestamp: Date;
   userId: string;
+  convoId: string;
 }
 
 export interface JoinConversationEvent extends EventBase {

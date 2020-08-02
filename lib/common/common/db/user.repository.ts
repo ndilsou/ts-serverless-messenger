@@ -1,12 +1,20 @@
 import { UserRepository, CreateUpdateUserDto } from "./types";
 import { User, UserConversation } from "../entities";
-import { DocumentClient } from "aws-sdk/clients/dynamodb";
+import {
+  DocumentClient,
+} from "aws-sdk/clients/dynamodb";
 import * as DbUtils from "./utilities";
 
 export interface DdbUserRepositoryProps {
   client: DocumentClient;
   tableName: string;
 }
+type DdbCreateUpdateUserInput = Omit<CreateUpdateUserDto, "conversations"> &
+  DbUtils.DynamoItem & { conversations?: DocumentClient.DynamoDbSet };
+
+type DdbUserOutput = Omit<User, "id" | "conversations"> & {
+  conversations: DocumentClient.StringSet;
+};
 
 export class DdbUserRepository implements UserRepository {
   private readonly client: DocumentClient;
@@ -25,13 +33,14 @@ export class DdbUserRepository implements UserRepository {
       throw new Error("Missing User");
     }
 
-    const [_pk, attrs] = DbUtils.parseAttributes<Omit<User, "id">>(
-      output.Item as DbUtils.DynamoItem
-    );
+    const [_pk, { conversations, ...attrs }] = DbUtils.parseAttributes<
+      DdbUserOutput
+    >(output.Item as DbUtils.DynamoItem);
 
     return {
       ...attrs,
       id: userId,
+      conversations: conversations ? conversations.values : [],
     };
   }
 
@@ -48,30 +57,35 @@ export class DdbUserRepository implements UserRepository {
       throw new Error("Missing User");
     }
 
-    const [_pk, attrs] = DbUtils.parseAttributes<Omit<User, "id">>(
-      output.Attributes as DbUtils.DynamoItem
-    );
+    const [_pk, { conversations, ...attrs }] = DbUtils.parseAttributes<
+      DdbUserOutput
+    >(output.Attributes as DbUtils.DynamoItem);
 
     return {
       ...attrs,
       id: userId,
+      conversations: conversations ? conversations.values : [],
     };
   }
 
-  async createUser(userDto: CreateUpdateUserDto): Promise<User> {
+  async createUser({conversations = [], ...userDto}: CreateUpdateUserDto): Promise<User> {
     const date = new Date();
     const id = DbUtils.generateId();
-    const item = {
+    let item: DdbCreateUpdateUserInput = {
       ...userDto,
       HK: `USER#${id}`,
       SK: `USER#${id}`,
       createdDate: date.toISOString(),
       updatedDate: date.toISOString(),
     };
+    if (conversations.length > 0) {
+      item = { ...item, conversations: this.client.createSet(conversations) };
+    }
     await this.client.put({ TableName: this.tableName, Item: item }).promise();
 
     return {
       ...userDto,
+      conversations,
       id,
       createdDate: date,
       updatedDate: date,
@@ -80,7 +94,7 @@ export class DdbUserRepository implements UserRepository {
 
   async replaceUser(
     userId: string,
-    userDto: CreateUpdateUserDto
+    {conversations = [], ...userDto}: CreateUpdateUserDto
   ): Promise<User> {
     const key = `USER#${userId}`;
     const primaryKey = { HK: key, SK: key };
@@ -88,40 +102,102 @@ export class DdbUserRepository implements UserRepository {
       .get({
         TableName: this.tableName,
         Key: primaryKey,
-        ProjectionExpression: "CreatedDate",
+        ProjectionExpression: "createdDate",
       })
       .promise();
     if (!output.Item) {
       throw new Error("Missing User");
     }
 
-    const updatedDate = new Date().toISOString();
-    const { createdDate } = output.Item as { createdDate: string };
-    const item = {
+    const createdDate = new Date(output.Item.createdDate as string);
+    const updatedDate = new Date();
+    let item: DdbCreateUpdateUserInput = {
       ...userDto,
       ...primaryKey,
-      createdDate,
-      updatedDate,
+      createdDate: createdDate.toISOString(),
+      updatedDate: updatedDate.toISOString(),
     };
+
+    if (conversations.length > 0) {
+      item = { ...item, conversations: this.client.createSet(conversations) };
+    }
     await this.client.put({ TableName: this.tableName, Item: item }).promise();
 
     return {
       ...userDto,
       id: userId,
-      createdDate: new Date(item.createdDate),
-      updatedDate: new Date(item.updatedDate),
+      conversations,
+      createdDate,
+      updatedDate,
     };
   }
 
   async getUserConversations(userId: string): Promise<UserConversation[]> {
-    const keyConditionExpression = `HK = :hk, begins_with(SK, :sk)`;
-    const { Items: items } = await this.client
-      .query({
+    const key = `USER#${userId}`;
+    const output = await this.client
+      .get({
         TableName: this.tableName,
-        KeyConditionExpression: keyConditionExpression,
-        ExpressionAttributeValues: { ":hk": `USER#${userId}`, ":sk": "CONVO" },
+        Key: { HK: key, SK: key },
+        ProjectionExpression: "conversations",
       })
       .promise();
-    return items ? items.map((a) => a as UserConversation) : [];
+    if (!output.Item) {
+      throw new Error("Missing User");
+    }
+    const { conversations } = output.Item as {
+      conversations: DocumentClient.StringSet;
+    };
+
+    return conversations
+      ? conversations.values.map((convoId) => ({ convoId, userId }))
+      : [];
+  }
+
+  async appendUserConversation(
+    userId: string,
+    convoId: string
+  ): Promise<UserConversation> {
+    const date = new Date();
+    const key = `USER#${userId}`;
+    await this.client
+      .update({
+        TableName: this.tableName,
+        Key: { HK: key, SK: key },
+        UpdateExpression: "ADD conversations :c SET updatedDate = :u",
+        ExpressionAttributeValues: {
+          ":c": this.client.createSet([convoId]),
+          ":u": date.toISOString(),
+        },
+      })
+      .promise();
+
+    return {
+      convoId,
+      userId,
+    };
+  }
+
+  async removeUserConversation(
+    userId: string,
+    convoId: string
+  ): Promise<UserConversation> {
+    const date = new Date();
+    const key = `USER#${userId}`;
+    await this.client
+      .update({
+        TableName: this.tableName,
+        Key: { HK: key, SK: key },
+        UpdateExpression: "DELETE conversations :c SET updatedDate = :u",
+        ExpressionAttributeValues: {
+          ":c": this.client.createSet([convoId]),
+          ":u": date.toISOString(),
+        },
+      })
+      .promise();
+
+    return {
+      convoId,
+      userId,
+    };
   }
 }
