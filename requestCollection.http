@@ -1,0 +1,43 @@
+### POST /users
+POST https://i33cqshwpk.execute-api.eu-west-2.amazonaws.com/users
+Content-Type: application/json
+
+{
+    "email": "nasn@gmail.com"
+}
+
+### GET /users/{userId}
+GET https://i33cqshwpk.execute-api.eu-west-2.amazonaws.com/users/88f47dfe-6b94-4b3b-b259-55f097c0bac5
+
+### GET /users/{userId}/conversations
+GET https://i33cqshwpk.execute-api.eu-west-2.amazonaws.com/users/88f47dfe-6b94-4b3b-b259-55f097c0bac5/conversations
+
+### POST /conversations
+POST https://i33cqshwpk.execute-api.eu-west-2.amazonaws.com/conversations
+Content-Type: application/json
+
+{
+    "alias": "The gang!",
+    "participantIds": [
+        "88f47dfe-6b94-4b3b-b259-55f097c0bac5",
+        "3446e7a8-118a-4e89-ae4a-ac71bfeb1e44"
+    ]
+}
+
+### GET /conversations/{convoId}
+GET https://i33cqshwpk.execute-api.eu-west-2.amazonaws.com/conversations/4bfe2fc2-be7c-4366-975e-f76a1e946ba4
+
+### GET /conversations/{convoId}/participants
+GET https://i33cqshwpk.execute-api.eu-west-2.amazonaws.com/conversations/4bfe2fc2-be7c-4366-975e-f76a1e946ba4/participants
+
+### POST /conversations/{convoId}/participants
+GET https://i33cqshwpk.execute-api.eu-west-2.amazonaws.com/conversations/4bfe2fc2-be7c-4366-975e-f76a1e946ba4/participants
+Content-Type: "application/json"
+
+{
+    "userId": "88f47dfe-6b94-4b3b-b259-55f097c0bac5",
+    "role": "administrator"
+}
+
+
+
