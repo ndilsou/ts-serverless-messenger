@@ -72,6 +72,8 @@ User generate events as part of a conversation.
 * create a user - REST
     - Create a user item.
     - createUser()
+* get a user data by her email - REST
+    - getUserByEmail()
 * list all conversations of a user - REST.
     - Get All UserConversations for a userId
     - getConversations()
