@@ -4,86 +4,101 @@ import {
   Context,
   APIGatewayProxyStructuredResultV2,
   APIGatewayEventRequestContext,
-} from 'aws-lambda';
-import * as AWS from 'aws-sdk';
+} from "aws-lambda";
+import * as AWS from "aws-sdk";
+import { DdbConversationRepository, DdbUserRepository } from "../common/db";
+import { isAppError } from "../common/errors";
+import { Events } from "../common/entities";
+import * as Params from "../common/params";
 
-const ddb = new AWS.DynamoDB.DocumentClient({ region: process.env.AWS_REGION });
+const tableName = Params.getTableName();
+const docClient = new AWS.DynamoDB.DocumentClient({
+  apiVersion: "2012-08-10",
+});
+const conversationRepo = new DdbConversationRepository({
+  client: docClient,
+  tableName,
+});
+
+const userRepo = new DdbUserRepository({ client: docClient, tableName });
 
 export interface ParsedEvent {
   routeKey: string;
   connectionId: string;
-  event?: object;
+  event: Events[keyof Events];
   endpoint: string;
 }
 
-export const handler = async (
-  event: APIGatewayEvent,
+export const dispatchWebsocketEvent = async (
+  event: APIGatewayEvent
 ): Promise<APIGatewayProxyResultV2<APIGatewayProxyStructuredResultV2>> => {
-  const parsedEvent = parseEvent(event);
   let response;
-  switch (parsedEvent.routeKey) {
-    case '$connect':
-      await onConnect(parsedEvent.connectionId);
-      response = { statusCode: 200 };
-      break;
+  try {
+    switch (event.requestContext.routeKey) {
+      case "$connect":
+        await onConnect(event);
+        response = { statusCode: 200 };
+        break;
 
-    case '$disconnect':
-      await onDisconnect(parsedEvent.connectionId);
-      response = { statusCode: 200 };
-      break;
+      case "$disconnect":
+        await onDisconnect(event);
+        response = { statusCode: 200 };
+        break;
 
-    case '$default':
-      try {
-        const result = await dispatch(parsedEvent);
-        response = { statusCode: 200, body: JSON.stringify(result) };
-      } catch (err) {
-        console.log(err);
-        response = { statusCode: 500, body: JSON.stringify(err) };
-      }
-      break;
+      case "$default":
+        response = {
+          statusCode: 500,
+          body: JSON.stringify({ error: "Not Implemented" }),
+        };
+        break;
 
-    default:
-      response = { statusCode: 404 };
+      default:
+        response = { statusCode: 404 };
+    }
+  } catch (error) {
+    if (isAppError(error)) {
+      response = {
+        statusCode: error.httpCode,
+        body: JSON.stringify({
+          error: { message: error.message, name: error.name },
+        }),
+      };
+    } else {
+      response = { statusCode: 500, body: JSON.stringify({ error }) };
+    }
   }
 
   return response;
 };
 
-export const onConnect = async (connectionId: string) =>
-  console.log(connectionId);
-
-export const onDisconnect = async (connectionId: string) =>
-  console.log(connectionId);
-
-export const dispatch = async (
-  { endpoint, body, connectionId }: ParsedEvent,
-) => {
-  const apigwManagementApi = new AWS.ApiGatewayManagementApi({
-    apiVersion: '2018-11-29',
-    endpoint,
+export const onConnect = async (apiGatewayEvent: APIGatewayEvent) => {
+  const { event, connectionId } = parseEvent(apiGatewayEvent);
+  await conversationRepo.createConnection({
+    connId: connectionId,
+    userId: event.userId,
+    convoId: event.convoId,
   });
+};
 
-  try {
-    const data = JSON.stringify(body!);
-    await apigwManagementApi
-      .postToConnection({ ConnectionId: connectionId, Data: data })
-      .promise();
-  } catch (e) {
-    if (e.statusCode === 410) {
-      console.log(`Found stale connection, deleting ${connectionId}`);
-    } else {
-      throw e;
-    }
-  }
-  console.log({ connectionId, body });
+export const onDisconnect = async (apiGatewayEvent: APIGatewayEvent) => {
+  const { event } = parseEvent(apiGatewayEvent);
+  await conversationRepo.removeConnection({
+    userId: event.userId,
+    convoId: event.convoId,
+  });
 };
 
 export const parseEvent = ({
   requestContext: { connectionId, stage, domainName, routeKey },
   body,
-}: APIGatewayEvent): ParsedEvent => ({
+}: APIGatewayEvent): ParsedEvent => {
+  if (body === null) {
+    throw new Error("Body missing from the event");
+  }
+  return {
     connectionId: connectionId!,
     routeKey: routeKey!,
-    event: body ? JSON.parse(body) : undefined,
-    endpoint: domainName + '/' + stage,
-});
+    event: JSON.parse(body),
+    endpoint: domainName + "/" + stage,
+  };
+};

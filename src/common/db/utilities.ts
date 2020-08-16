@@ -23,7 +23,9 @@ export type DynamoItem = PrimaryKeyAttrs & {
   updatedDate: string;
 };
 export type Attrs = { createdDate: Date; updatedDate: Date };
-export const parseAttributes = <T extends Attrs>(item: DynamoItem): [PrimaryKeyAttrs, T] => {
+export const parseAttributes = <T extends Attrs>(
+  item: DynamoItem
+): [PrimaryKeyAttrs, T] => {
   const { HK, SK, createdDate, updatedDate, ...attrs } = item;
 
   const primaryKey = { HK, SK };
@@ -37,5 +39,5 @@ export const parseAttributes = <T extends Attrs>(item: DynamoItem): [PrimaryKeyA
 };
 
 export const hashSortKey = (value: string, hashSize: number): number => {
-  return 0
-}
+  return 0;
+};

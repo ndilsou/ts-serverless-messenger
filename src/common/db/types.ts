@@ -35,6 +35,10 @@ export type AddConnectionProps = {
   userId: string;
   connId: string;
 };
+export type RemoveConnectionProps = {
+  convoId: string;
+  userId: string;
+};
 
 export type GetEventsOptions = {
   after?: Date;
@@ -48,6 +52,7 @@ export type CreateUpdateConversationDto = {
 };
 
 export interface ConversationRepository {
+  getConversation(convoId: string): Promise<Conversation>;
   createParticipant(
     convoId: string,
     user: User,
@@ -56,7 +61,7 @@ export interface ConversationRepository {
   getParticipants(convoId: string): Promise<Participant[]>;
   removeParticipant(convoId: string, userId: string): Promise<Participant>;
   createConnection(props: AddConnectionProps): Promise<Participant>;
-  removeConnection(convoId: string, userId: string): Promise<Participant>;
+  removeConnection(props: RemoveConnectionProps): Promise<Participant>;
   createConversation(
     convoDto?: CreateUpdateConversationDto
   ): Promise<Conversation>;

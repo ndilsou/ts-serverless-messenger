@@ -3,6 +3,7 @@ import {
   AddConnectionProps,
   GetEventsOptions,
   CreateUpdateConversationDto,
+  RemoveConnectionProps,
 } from "./types";
 import {
   User,
@@ -13,6 +14,10 @@ import {
 } from "../entities";
 import * as DbUtils from "./utilities";
 import { DocumentClient } from "aws-sdk/clients/dynamodb";
+
+type DdbConversationOutput = Omit<Conversation, "id"> & {
+  conversations: DocumentClient.StringSet;
+};
 
 export interface DdbConversationRepositoryProps {
   client: DocumentClient;
@@ -86,7 +91,7 @@ export class DdbConversationRepository implements ConversationRepository {
     const output = await this.client
       .query({
         TableName: this.tableName,
-        KeyConditionExpression: "HK = :hk, begins_with(SK, :sk)",
+        KeyConditionExpression: "HK = :hk and begins_with(SK, :sk)",
         ExpressionAttributeValues: {
           ":hk": `CONVO#${convoId}`,
           ":sk": `USER#`,
@@ -108,7 +113,6 @@ export class DdbConversationRepository implements ConversationRepository {
       const userId = pk.SK.split("#")[1];
       return { convoId, userId, ...participant };
     });
-    console.log(participants);
     return participants;
   }
 
@@ -152,10 +156,10 @@ export class DdbConversationRepository implements ConversationRepository {
     };
   }
 
-  async removeConnection(
-    convoId: string,
-    userId: string
-  ): Promise<Participant> {
+  async removeConnection({
+    convoId,
+    userId,
+  }: RemoveConnectionProps): Promise<Participant> {
     const key = {
       HK: `CONVO#${convoId}`,
       SK: `USER#${userId}`,
@@ -178,6 +182,25 @@ export class DdbConversationRepository implements ConversationRepository {
     return {
       convoId,
       userId,
+      ...attrs,
+    };
+  }
+
+  async getConversation(convoId: string): Promise<Conversation> {
+    const key = `CONVO#${convoId}`;
+    const output = await this.client
+      .get({ TableName: this.tableName, Key: { HK: key, SK: key } })
+      .promise();
+    if (!output.Item) {
+      throw new Error("Missing Conversation");
+    }
+
+    const [_pk, attrs] = DbUtils.parseAttributes<Omit<Conversation, "id">>(
+      output.Item as DbUtils.DynamoItem
+    );
+
+    return {
+      id: convoId,
       ...attrs,
     };
   }

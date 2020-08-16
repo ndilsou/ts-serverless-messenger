@@ -3,11 +3,11 @@ import * as AWSMock from "aws-sdk-mock";
 import * as AWS from "aws-sdk";
 import { DocumentClient } from "aws-sdk/clients/dynamodb";
 
-import { DdbUserRepository } from "../../../common/db/user.repository";
+import { DdbUserRepository } from "../../../../src/common/db/user.repository";
 
-import * as AWSTestUtils from "../../helpers/aws-sdk";
-import * as Constants from "../../helpers/constants";
-import { DdbConversationRepository } from "../../../common/db/conversation.repository";
+import * as AWSTestUtils from "../../../helpers/aws-sdk";
+import * as Constants from "../../../helpers/constants";
+import { DdbConversationRepository } from "../../../../src/common/db/conversation.repository";
 
 describe("DdbUserRepository integration with the database", () => {
   let tableName: string;

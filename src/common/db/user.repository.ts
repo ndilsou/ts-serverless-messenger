@@ -1,8 +1,6 @@
 import { UserRepository, CreateUpdateUserDto } from "./types";
 import { User, UserConversation } from "../entities";
-import {
-  DocumentClient,
-} from "aws-sdk/clients/dynamodb";
+import { DocumentClient } from "aws-sdk/clients/dynamodb";
 import * as DbUtils from "./utilities";
 
 export interface DdbUserRepositoryProps {
@@ -44,6 +42,34 @@ export class DdbUserRepository implements UserRepository {
     };
   }
 
+  // async getUserByEmail(email: string): Promise<User> {
+  //   // const key = `USER#${mail}`;
+  //   const output = await this.client
+  //     .query({
+  //       TableName: this.tableName,
+  //       IndexName: "GS1",
+  //       KeyConditionExpression: "GS1 = :email",
+  //       ExpressionAttributeValues: {
+  //         ":email": email,
+  //       },
+  //       Limit: 1,
+  //     })
+  //     .promise();
+  //   if (!output.Item) {
+  //     throw new Error("Missing User");
+  //   }
+
+  //   const [_pk, { conversations, ...attrs }] = DbUtils.parseAttributes<
+  //     DdbUserOutput
+  //   >(output.Item as DbUtils.DynamoItem);
+
+  //   return {
+  //     ...attrs,
+  //     id: userId,
+  //     conversations: conversations ? conversations.values : [],
+  //   };
+  // }
+
   async removeUser(userId: string): Promise<User> {
     const key = `USER#${userId}`;
     const output = await this.client
@@ -68,7 +94,10 @@ export class DdbUserRepository implements UserRepository {
     };
   }
 
-  async createUser({conversations = [], ...userDto}: CreateUpdateUserDto): Promise<User> {
+  async createUser({
+    conversations = [],
+    ...userDto
+  }: CreateUpdateUserDto): Promise<User> {
     const date = new Date();
     const id = DbUtils.generateId();
     let item: DdbCreateUpdateUserInput = {
@@ -94,7 +123,7 @@ export class DdbUserRepository implements UserRepository {
 
   async replaceUser(
     userId: string,
-    {conversations = [], ...userDto}: CreateUpdateUserDto
+    { conversations = [], ...userDto }: CreateUpdateUserDto
   ): Promise<User> {
     const key = `USER#${userId}`;
     const primaryKey = { HK: key, SK: key };

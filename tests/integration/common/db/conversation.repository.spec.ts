@@ -2,11 +2,11 @@ import * as AWSMock from "aws-sdk-mock";
 import * as AWS from "aws-sdk";
 import { DocumentClient } from "aws-sdk/clients/dynamodb";
 
-import { DdbConversationRepository } from "../../../common/db/conversation.repository";
+import { DdbConversationRepository } from "../../../../src/common/db/conversation.repository";
 
-import * as AWSTestUtils from "../../helpers/aws-sdk";
-import * as Constants from "../../helpers/constants";
-import { DdbUserRepository } from "../../../common/db/user.repository";
+import * as AWSTestUtils from "../../../helpers/aws-sdk";
+import * as Constants from "../../../helpers/constants";
+import { DdbUserRepository } from "../../../../src/common/db/user.repository";
 
 describe("DdbConversationRepository integration with the database", () => {
   let userRepo: DdbUserRepository;
@@ -42,6 +42,17 @@ describe("DdbConversationRepository integration with the database", () => {
     expect(out.createdDate).toBeDefined();
     expect(out.updatedDate).toBeDefined();
     expect(out.updatedDate).toStrictEqual(out.createdDate);
+  });
+
+  it("when calling getConversation, you get a conversation", async () => {
+    // GIVEN
+    const actualConvo = await convoRepo.createConversation();
+
+    // WHEN
+    const expectedConvo = await convoRepo.getConversation(actualConvo.id);
+
+    // THEN
+    expect(expectedConvo).toMatchObject(actualConvo);
   });
 
   it("when calling createParticipant, adds a new participant", async () => {
@@ -118,50 +129,12 @@ describe("DdbConversationRepository integration with the database", () => {
     });
 
     // WHEN
-    const participant = await convoRepo.removeConnection(convo.id, user.id);
+    const participant = await convoRepo.removeConnection({
+      convoId: convo.id,
+      userId: user.id,
+    });
 
     // THEN
     expect(participant).not.toHaveProperty("connId");
   });
-
-  // it("when calling replaceUser, replace the user info", async () => {
-  //   // GIVEN
-  //   const userIn = {
-  //     email: "johnjohn@gmail.com",
-  //   };
-  //   const { id: userId, ...dto } = await repository.createUser(userIn);
-  //   const newEmail = "cheval@yahoo.fr";
-  //   dto.email = newEmail;
-
-  //   // WHEN
-  //   const updatedUser = await repository.replaceUser(userId, dto);
-
-  //   // then
-  //   expect(updatedUser).toMatchObject({ id: userId, email: newEmail });
-  // });
-
-  // it("when calling replaceUser on a missing user, throws error", async () => {
-  //   expect(
-  //     repository.replaceUser("missingID", { email: "JohnJhon2" })
-  //   ).rejects.toThrow();
-  // });
-
-  // it("when calling removeUser, removes the user from the database", async () => {
-  //   // GIVEN
-  //   const user = await repository.createUser({
-  //     email: "johnjohn@gmail.com",
-  //   });
-
-  //   // WHEN
-  //   const removedUser = await repository.removeUser(user.id);
-
-  //   // THEN
-  //   expect(removedUser).toStrictEqual(user);
-
-  //   AWSMock.restore();
-  // });
-
-  // it("when calling removeUser on a missing user, throws error", async () => {
-  //   expect(repository.removeUser("missingID")).rejects.toThrow();
-  // });
 });

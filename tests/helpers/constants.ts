@@ -1,11 +1,9 @@
-import { User, Conversation } from "../../common/entities";
-
 export const TABLE_NAME = "test";
 
 export const DDB_OPTIONS = {
   apiVersion: "2012-08-10",
   region: "eu-west-2",
-  endpoint: "http://localhost:8000"
+  endpoint: "http://localhost:8000",
 };
 
 export const SAMPLE_ITEMS = {
