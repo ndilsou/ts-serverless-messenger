@@ -1,3 +1,4 @@
+const nodeExternals = require("webpack-node-externals");
 const AwsSamPlugin = require("aws-sam-webpack-plugin");
 const path = require("path");
 const awsSamPlugin = new AwsSamPlugin();
@@ -15,7 +16,7 @@ module.exports = {
   },
 
   // Create source maps
-  devtool: "inline-source-map",
+  devtool: "source-map",
 
   // Resolve .ts and .js extensions
   resolve: {
@@ -29,6 +30,12 @@ module.exports = {
   // the size of your deployment package. If you want to always include it then comment out this line. It has
   // been included conditionally because the node10.x docker image used by SAM local doesn't include it.
   // externals: process.env.NODE_ENV === "development" ? [] : ["aws-sdk"],
+
+  externals: [
+    nodeExternals({
+      modulesFromFile: { excludeFromBundle: ["devDependencies"] },
+    }),
+  ],
 
   // Set the webpack mode
   mode: process.env.NODE_ENV || "production",

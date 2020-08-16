@@ -1,9 +1,7 @@
 {
   "compilerOptions": {
-    // "outDir": "./dist",
-    "rootDir": "./",
     "target": "ES2019",
-    "module": "ES6",
+    "module": "CommonJS",
     "lib": ["ES2019"],
     "allowJs": true,
     "strict": true,
@@ -14,18 +12,18 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": false,
-    "inlineSourceMap": true,
-    "inlineSources": true,
+    "noFallthroughCasesInSwitch": true,
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true,
-    "strictPropertyInitialization": false,
+    "strictPropertyInitialization": true,
     "types": ["node", "jest"],
     "typeRoots": ["./node_modules/@types"],
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node"
   },
   "include": ["src/**/*.ts"],
-  // "exclude": ["**/*.spec.ts"]
-  "exclude": ["cdk.out", "node_modules", "**/*.spec.ts", "aws-cdk", "dist"]
+  "exclude": ["**/*.spec.ts", "**/tests/*", "node_modules"]
 }

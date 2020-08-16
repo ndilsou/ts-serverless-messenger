@@ -1,8 +1,8 @@
-const baseConfig = require('./jest.config');
+const baseConfig = require("./jest.config");
 
 module.exports = {
-  testMatch: ['**/tests/integration/**/*.spec.ts'],
+  testMatch: ["**/tests/integration/**/*.spec.ts"],
   transform: {
-    '^.+\\.tsx?$': 'ts-jest'
-  }
+    "^.+\\.tsx?$": "ts-jest",
+  },
 };
