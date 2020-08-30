@@ -70,6 +70,8 @@ export type Events = {
   sendMessage: SendMessageEvent;
 };
 
+export type Event = Events[keyof Events];
+
 export interface EventBase {
   action: string;
   id?: string;
