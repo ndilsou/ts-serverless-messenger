@@ -1,13 +1,18 @@
 import { EROFS } from "constants";
 
 export type httpCode = 500 | 400 | 404;
+export type errorType =
+  | "RecordNotFound"
+  | "FailedInsert"
+  | "InvalidRequestBody"
+  | "InvalidJson";
 
 export class AppError extends Error {
-  public readonly name: string;
+  public readonly name: errorType;
   public readonly httpCode: httpCode;
   public readonly isOperational: boolean;
   constructor(
-    name: string,
+    name: errorType,
     httpCode: httpCode,
     description: string,
     isOperational: boolean
