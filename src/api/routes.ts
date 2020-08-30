@@ -8,11 +8,7 @@ import {
 import { Handler } from "./router";
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ParticipantRole } from "../common/entities";
-
-export interface ServiceProvider {
-  userRepo: UserRepository;
-  conversationRepo: ConversationRepository;
-}
+import { ServiceProvider } from "../common/services";
 
 export type RequestHandler = Handler<ServiceProvider>;
 

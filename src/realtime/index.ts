@@ -8,8 +8,18 @@ import {
 import * as AWS from "aws-sdk";
 import { DdbConversationRepository, DdbUserRepository } from "../common/db";
 import { isAppError } from "../common/errors";
-import { Events } from "../common/entities";
+import { Events, Event, Participant } from "../common/entities";
 import * as Params from "../common/params";
+import { loadServices, ServiceProvider } from "../common/services";
+import { ConversationRepository } from "../common/db/types";
+import { CognitoIdentityServiceProvider } from "aws-sdk";
+
+const services = loadServices();
+
+export interface EventContext {
+  connectionId: string;
+  endpoint: string;
+}
 
 const tableName = Params.getTableName();
 const docClient = new AWS.DynamoDB.DocumentClient({
@@ -46,6 +56,7 @@ export const dispatchWebsocketEvent = async (
         break;
 
       case "$default":
+        const result = await onEvent(event);
         response = {
           statusCode: 500,
           body: JSON.stringify({ error: "Not Implemented" }),
@@ -69,6 +80,14 @@ export const dispatchWebsocketEvent = async (
   }
 
   return response;
+};
+
+export const onEvent = async (
+  { conversationRepo }: ServiceProvider,
+  apiGatewayEvent: APIGatewayEvent
+) => {
+  const parsedEvent = parseEvent(apiGatewayEvent);
+  await broadcastEvent(conversationRepo, parsedEvent);
 };
 
 export const onConnect = async (apiGatewayEvent: APIGatewayEvent) => {
@@ -102,3 +121,37 @@ export const parseEvent = ({
     endpoint: domainName + "/" + stage,
   };
 };
+
+export const broadcastEvent = async (
+  conversationRepo: ConversationRepository,
+  { event, endpoint, connectionId }: ParsedEvent
+) => {
+  const apigwManagementApi = new AWS.ApiGatewayManagementApi({
+    apiVersion: "2018-11-29",
+    endpoint,
+  });
+  await conversationRepo.getParticipants(event.convoId).then((participants) => {
+    participants.map((participant) => {
+      const { connId } = participant as Required<Participant>;
+      apigwManagementApi.postToConnection({
+        ConnectionId: connId,
+        Data: event,
+      });
+    });
+  });
+};
+
+// let send = undefined;
+// function init(event) {
+//   console.log(event);
+//   const apigwManagementApi = new AWS.ApiGatewayManagementApi({
+//     apiVersion: "2018-11-29",
+//     endpoint:
+//       event.requestContext.domainName + "/" + event.requestContext.stage,
+//   });
+//   send = async (connectionId, data) => {
+//     await apigwManagementApi
+//       .postToConnection({ ConnectionId: connectionId, Data: `Echo: ${data}` })
+//       .promise();
+//   };
+// }

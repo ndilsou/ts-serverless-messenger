@@ -17,10 +17,10 @@ import {
   getConversationParticipants,
   removeConversationParticipants,
   removeUser,
-  ServiceProvider,
 } from "./routes";
 import { DdbConversationRepository, DdbUserRepository } from "../common/db";
 import * as Params from "../common/params";
+import { loadServices, ServiceProvider } from "../common/services";
 
 const router = mountRouter();
 
@@ -60,19 +60,19 @@ export function mountRouter(): ApiGatewayRouter<ServiceProvider> {
   return router;
 }
 
-export function loadServices(): ServiceProvider {
-  const tableName = Params.getTableName();
-  const docClient = new AWS.DynamoDB.DocumentClient({
-    apiVersion: "2012-08-10",
-  });
-  const conversationRepo = new DdbConversationRepository({
-    client: docClient,
-    tableName,
-  });
+// export function loadServices(): ServiceProvider {
+//   const tableName = Params.getTableName();
+//   const docClient = new AWS.DynamoDB.DocumentClient({
+//     apiVersion: "2012-08-10",
+//   });
+//   const conversationRepo = new DdbConversationRepository({
+//     client: docClient,
+//     tableName,
+//   });
 
-  const userRepo = new DdbUserRepository({ client: docClient, tableName });
-  return {
-    userRepo,
-    conversationRepo,
-  };
-}
+//   const userRepo = new DdbUserRepository({ client: docClient, tableName });
+//   return {
+//     userRepo,
+//     conversationRepo,
+//   };
+// }
