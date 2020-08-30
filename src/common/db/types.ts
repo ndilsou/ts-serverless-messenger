@@ -8,6 +8,7 @@ import {
 } from "../entities";
 
 export type CreateUpdateUserDto = {
+  id?: string;
   email: string;
   conversations?: string[];
   avatarUrl?: string;

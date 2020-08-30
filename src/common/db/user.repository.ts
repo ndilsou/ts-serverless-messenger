@@ -2,6 +2,7 @@ import { UserRepository, CreateUpdateUserDto } from "./types";
 import { User, UserConversation } from "../entities";
 import { DocumentClient } from "aws-sdk/clients/dynamodb";
 import * as DbUtils from "./utilities";
+import { AppError } from "../errors";
 
 export interface DdbUserRepositoryProps {
   client: DocumentClient;
@@ -10,7 +11,7 @@ export interface DdbUserRepositoryProps {
 type DdbCreateUpdateUserInput = Omit<CreateUpdateUserDto, "conversations"> &
   DbUtils.DynamoItem & { conversations?: DocumentClient.DynamoDbSet };
 
-type DdbUserOutput = Omit<User, "id" | "conversations"> & {
+type DdbUserOutput = Omit<User, "conversations"> & {
   conversations: DocumentClient.StringSet;
 };
 
@@ -22,22 +23,54 @@ export class DdbUserRepository implements UserRepository {
     this.tableName = tableName;
   }
 
+  async createUser({
+    conversations = [],
+    ...userDto
+  }: CreateUpdateUserDto): Promise<User> {
+    const date = new Date();
+    const id = DbUtils.generateId();
+    let item: DdbCreateUpdateUserInput = {
+      ...userDto,
+      HK: `USER:id#${id}`,
+      SK: `USER:id#${id}`,
+      createdDate: date.toISOString(),
+      updatedDate: date.toISOString(),
+      id,
+    };
+    if (conversations.length > 0) {
+      item = { ...item, conversations: this.client.createSet(conversations) };
+    }
+    await this.client.put({ TableName: this.tableName, Item: item }).promise();
+
+    return {
+      ...userDto,
+      conversations,
+      id,
+      createdDate: date,
+      updatedDate: date,
+    };
+  }
+
   async getUser(userId: string): Promise<User> {
-    const key = `USER#${userId}`;
+    const key = `USER:id#${userId}`;
     const output = await this.client
       .get({ TableName: this.tableName, Key: { HK: key, SK: key } })
       .promise();
     if (!output.Item) {
-      throw new Error("Missing User");
+      throw new AppError(
+        "RecordNotFound",
+        404,
+        `No User with id ${userId}`,
+        true
+      );
     }
 
-    const [_pk, { conversations, ...attrs }] = DbUtils.parseAttributes<
+    const [_pk, { conversations, ...user }] = DbUtils.parseAttributes<
       DdbUserOutput
     >(output.Item as DbUtils.DynamoItem);
 
     return {
-      ...attrs,
-      id: userId,
+      ...user,
       conversations: conversations ? conversations.values : [],
     };
   }
@@ -71,7 +104,7 @@ export class DdbUserRepository implements UserRepository {
   // }
 
   async removeUser(userId: string): Promise<User> {
-    const key = `USER#${userId}`;
+    const key = `USER:id#${userId}`;
     const output = await this.client
       .delete({
         TableName: this.tableName,
@@ -80,7 +113,12 @@ export class DdbUserRepository implements UserRepository {
       })
       .promise();
     if (!output.Attributes) {
-      throw new Error("Missing User");
+      throw new AppError(
+        "RecordNotFound",
+        404,
+        `No User with id ${userId}`,
+        true
+      );
     }
 
     const [_pk, { conversations, ...attrs }] = DbUtils.parseAttributes<
@@ -89,35 +127,7 @@ export class DdbUserRepository implements UserRepository {
 
     return {
       ...attrs,
-      id: userId,
       conversations: conversations ? conversations.values : [],
-    };
-  }
-
-  async createUser({
-    conversations = [],
-    ...userDto
-  }: CreateUpdateUserDto): Promise<User> {
-    const date = new Date();
-    const id = DbUtils.generateId();
-    let item: DdbCreateUpdateUserInput = {
-      ...userDto,
-      HK: `USER#${id}`,
-      SK: `USER#${id}`,
-      createdDate: date.toISOString(),
-      updatedDate: date.toISOString(),
-    };
-    if (conversations.length > 0) {
-      item = { ...item, conversations: this.client.createSet(conversations) };
-    }
-    await this.client.put({ TableName: this.tableName, Item: item }).promise();
-
-    return {
-      ...userDto,
-      conversations,
-      id,
-      createdDate: date,
-      updatedDate: date,
     };
   }
 
@@ -125,7 +135,7 @@ export class DdbUserRepository implements UserRepository {
     userId: string,
     { conversations = [], ...userDto }: CreateUpdateUserDto
   ): Promise<User> {
-    const key = `USER#${userId}`;
+    const key = `USER:id#${userId}`;
     const primaryKey = { HK: key, SK: key };
     const output = await this.client
       .get({
@@ -135,7 +145,12 @@ export class DdbUserRepository implements UserRepository {
       })
       .promise();
     if (!output.Item) {
-      throw new Error("Missing User");
+      throw new AppError(
+        "RecordNotFound",
+        404,
+        `No User with id ${userId}`,
+        true
+      );
     }
 
     const createdDate = new Date(output.Item.createdDate as string);
@@ -162,7 +177,7 @@ export class DdbUserRepository implements UserRepository {
   }
 
   async getUserConversations(userId: string): Promise<UserConversation[]> {
-    const key = `USER#${userId}`;
+    const key = `USER:id#${userId}`;
     const output = await this.client
       .get({
         TableName: this.tableName,
@@ -171,7 +186,12 @@ export class DdbUserRepository implements UserRepository {
       })
       .promise();
     if (!output.Item) {
-      throw new Error("Missing User");
+      throw new AppError(
+        "RecordNotFound",
+        404,
+        `No User with id ${userId}`,
+        true
+      );
     }
     const { conversations } = output.Item as {
       conversations: DocumentClient.StringSet;
@@ -187,7 +207,7 @@ export class DdbUserRepository implements UserRepository {
     convoId: string
   ): Promise<UserConversation> {
     const date = new Date();
-    const key = `USER#${userId}`;
+    const key = `USER:id#${userId}`;
     await this.client
       .update({
         TableName: this.tableName,
@@ -211,7 +231,7 @@ export class DdbUserRepository implements UserRepository {
     convoId: string
   ): Promise<UserConversation> {
     const date = new Date();
-    const key = `USER#${userId}`;
+    const key = `USER:id#${userId}`;
     await this.client
       .update({
         TableName: this.tableName,
