@@ -85,9 +85,11 @@ export const dispatchWebsocketEvent = async (
 export const onEvent = async (
   { conversationRepo }: ServiceProvider,
   apiGatewayEvent: APIGatewayEvent
-) => {
+): Promise<void> => {
   const parsedEvent = parseEvent(apiGatewayEvent);
-  await broadcastEvent(conversationRepo, parsedEvent);
+  await conversationRepo
+    .appendEvent(parsedEvent.event)
+    .then(async () => broadcastEvent(conversationRepo, parsedEvent));
 };
 
 export const onConnect = async (apiGatewayEvent: APIGatewayEvent) => {
@@ -130,15 +132,18 @@ export const broadcastEvent = async (
     apiVersion: "2018-11-29",
     endpoint,
   });
-  await conversationRepo.getParticipants(event.convoId).then((participants) => {
-    participants.map((participant) => {
-      const { connId } = participant as Required<Participant>;
-      apigwManagementApi.postToConnection({
-        ConnectionId: connId,
-        Data: event,
+  await conversationRepo
+    .getParticipants(event.convoId)
+    .then(async (participants) => {
+      const broadcastRequests = participants.map((participant) => {
+        const { connId } = participant as Required<Participant>;
+        apigwManagementApi.postToConnection({
+          ConnectionId: connId,
+          Data: event,
+        });
       });
+      await Promise.all(broadcastRequests);
     });
-  });
 };
 
 // let send = undefined;
