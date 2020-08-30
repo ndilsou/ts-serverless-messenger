@@ -135,7 +135,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
-      Handler: api.handler
+      Handler: rest.handler
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName
