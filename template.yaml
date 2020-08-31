@@ -108,7 +108,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
-      Handler: realtime.handler
+      Handler: realtimeMessaging.handler
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName
