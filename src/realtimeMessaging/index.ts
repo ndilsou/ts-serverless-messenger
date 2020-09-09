@@ -7,18 +7,26 @@ import {
 } from "aws-lambda";
 import * as AWS from "aws-sdk";
 import { DdbConversationRepository, DdbUserRepository } from "../common/db";
-import { isAppError } from "../common/errors";
+import { isAppError, AppError } from "../common/errors";
 import { Events, Event, Participant } from "../common/entities";
 import * as Params from "../common/params";
 import { loadServices, ServiceProvider } from "../common/services";
 import { ConversationRepository } from "../common/db/types";
-import { CognitoIdentityServiceProvider } from "aws-sdk";
+import {
+  CognitoIdentityServiceProvider,
+  ApiGatewayManagementApi,
+  APIGateway,
+} from "aws-sdk";
 
 const services = loadServices();
 
 export interface EventContext {
   connectionId: string;
   endpoint: string;
+}
+
+export interface HandlerResponse {
+  status: boolean;
 }
 
 const tableName = Params.getTableName();
@@ -39,52 +47,54 @@ export interface ParsedEvent {
   endpoint: string;
 }
 
-export const dispatchWebsocketEvent = async (
-  event: APIGatewayEvent
-): Promise<APIGatewayProxyResultV2<APIGatewayProxyStructuredResultV2>> => {
-  let response;
+export const handler = async (event: APIGatewayEvent): Promise<void> => {
+  console.log(event);
+  const respondToSender = createRespondToSenderFromEvent(event);
   try {
     switch (event.requestContext.routeKey) {
-      case "$connect":
+      case "connect":
         await onConnect(event);
-        response = { statusCode: 200 };
+        await respondToSender({ statusCode: 200, message: "CONNECTED" });
         break;
 
       case "$disconnect":
         await onDisconnect(event);
-        response = { statusCode: 200 };
+        await respondToSender({ statusCode: 200, message: "DISCONNECTED" });
         break;
 
+      // case "$disconnect":
+      //   await onDisconnect(event);
+      //   response = { statusCode: 200 };
+      //   break;
+
       case "$default":
-        const result = await onEvent(event);
-        response = {
-          statusCode: 500,
-          body: JSON.stringify({ error: "Not Implemented" }),
-        };
+        await onMessage(event, services);
         break;
 
       default:
-        response = { statusCode: 404 };
+        await respondToSender({
+          statusCode: 404,
+          error: { message: "Unknown Action" },
+        });
     }
   } catch (error) {
     if (isAppError(error)) {
-      response = {
+      await respondToSender({
         statusCode: error.httpCode,
-        body: JSON.stringify({
-          error: { message: error.message, name: error.name },
-        }),
-      };
+        error: { message: error.message, name: error.name },
+      });
     } else {
-      response = { statusCode: 500, body: JSON.stringify({ error }) };
+      await respondToSender({
+        statusCode: 500,
+        error,
+      });
     }
   }
-
-  return response;
 };
 
-export const onEvent = async (
-  { conversationRepo }: ServiceProvider,
-  apiGatewayEvent: APIGatewayEvent
+export const onMessage = async (
+  apiGatewayEvent: APIGatewayEvent,
+  { conversationRepo }: ServiceProvider
 ): Promise<void> => {
   const parsedEvent = parseEvent(apiGatewayEvent);
   await conversationRepo
@@ -93,12 +103,22 @@ export const onEvent = async (
 };
 
 export const onConnect = async (apiGatewayEvent: APIGatewayEvent) => {
-  const { event, connectionId } = parseEvent(apiGatewayEvent);
+  const { event, connectionId, endpoint } = parseEvent(apiGatewayEvent);
   await conversationRepo.createConnection({
     connId: connectionId,
     userId: event.userId,
     convoId: event.convoId,
   });
+
+  await new AWS.ApiGatewayManagementApi({
+    apiVersion: "2018-11-29",
+    endpoint,
+  })
+    .postToConnection({
+      ConnectionId: connectionId,
+      Data: JSON.stringify({ statusCode: 200, message: "CONNECTED" }),
+    })
+    .promise();
 };
 
 export const onDisconnect = async (apiGatewayEvent: APIGatewayEvent) => {
@@ -114,7 +134,12 @@ export const parseEvent = ({
   body,
 }: APIGatewayEvent): ParsedEvent => {
   if (body === null) {
-    throw new Error("Body missing from the event");
+    throw new AppError(
+      "InvalidRequestBody",
+      400,
+      "Body missing from the event",
+      true
+    );
   }
   return {
     connectionId: connectionId!,
@@ -126,7 +151,7 @@ export const parseEvent = ({
 
 export const broadcastEvent = async (
   conversationRepo: ConversationRepository,
-  { event, endpoint, connectionId }: ParsedEvent
+  { event, endpoint }: ParsedEvent
 ) => {
   const apigwManagementApi = new AWS.ApiGatewayManagementApi({
     apiVersion: "2018-11-29",
@@ -135,28 +160,45 @@ export const broadcastEvent = async (
   await conversationRepo
     .getParticipants(event.convoId)
     .then(async (participants) => {
-      const broadcastRequests = participants.map((participant) => {
-        const { connId } = participant as Required<Participant>;
-        apigwManagementApi.postToConnection({
-          ConnectionId: connId,
-          Data: event,
+      const broadcastRequests = participants
+        .filter((participant) => participant?.connId)
+        .map(async (participant) => {
+          const { connId } = participant as Required<Participant>;
+          await apigwManagementApi
+            .postToConnection({
+              ConnectionId: connId,
+              Data: event,
+            })
+            .promise();
         });
-      });
       await Promise.all(broadcastRequests);
     });
 };
 
-// let send = undefined;
-// function init(event) {
-//   console.log(event);
-//   const apigwManagementApi = new AWS.ApiGatewayManagementApi({
-//     apiVersion: "2018-11-29",
-//     endpoint:
-//       event.requestContext.domainName + "/" + event.requestContext.stage,
-//   });
-//   send = async (connectionId, data) => {
-//     await apigwManagementApi
-//       .postToConnection({ ConnectionId: connectionId, Data: `Echo: ${data}` })
-//       .promise();
-//   };
-// }
+export type RespondToSenderFn = {
+  (data: any): Promise<{
+    $response: AWS.Response<{}, AWS.AWSError>;
+  }>;
+};
+
+/**
+ * creates a function that will send back a payload of data to the sender of the event.
+ * @param APIGatewayEvent the event.
+ */
+const createRespondToSenderFromEvent = ({
+  requestContext: { connectionId, stage, domainName },
+}: APIGatewayEvent): RespondToSenderFn => {
+  const apigwManagementApi = new AWS.ApiGatewayManagementApi({
+    apiVersion: "2018-11-29",
+    endpoint: domainName + "/" + stage,
+  });
+  const responderFn: RespondToSenderFn = async (data) =>
+    await apigwManagementApi
+      .postToConnection({
+        ConnectionId: connectionId!,
+        Data: JSON.stringify(data),
+      })
+      .promise();
+
+  return responderFn;
+};
