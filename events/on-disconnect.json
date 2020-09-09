@@ -1,0 +1,21 @@
+{
+    "body": "{\"userId\":\"1f76fad8-932f-4a80-8b67-c510adccb0fa\",\"convoId\":\"4a025573-cb7f-4cde-b693-944887b94b71\"}",
+    "resource": "/{proxy+}",
+    "path": "/path/to/resource",
+    "httpMethod": "POST",
+    "isBase64Encoded": true,
+    "requestContext": {
+        "accountId": "123456789012",
+        "connectionId": "123456",
+        "routeKey": "$disconnect",
+        "stage": "prod",
+        "requestId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+        "requestTime": "09/Apr/2015:12:34:56 +0000",
+        "requestTimeEpoch": 1428582896000,
+        "path": "/prod/path/to/resource",
+        "resourcePath": "/{proxy+}",
+        "httpMethod": "POST",
+        "domainName": "1234567890",
+        "protocol": "HTTP/1.1"
+    }
+}
