@@ -52,7 +52,6 @@ export const getUserConversations: RequestHandler = async (
 ) => {
   const userId = event.pathParameters!.userId;
   const userConvos = await userRepo.getUserConversations(userId);
-  console.log(userConvos);
   return { statusCode: 200, body: JSON.stringify(userConvos) };
 };
 

@@ -80,6 +80,10 @@ export interface EventBase {
   convoId: string;
 }
 
+export interface ConnectEvent extends EventBase {
+  action: "connect";
+}
+
 export interface JoinConversationEvent extends EventBase {
   action: "joinConversation";
 }
