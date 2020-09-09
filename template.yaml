@@ -33,8 +33,17 @@ Resources:
       ApiId: !Ref ServerlessWebSocketApi
       RouteKey: $connect
       AuthorizationType: NONE
-      OperationName: ConnectRoute
-      Target: !Sub "integrations/${WebSocketInteg}"
+      OperationName: Connect
+      Target: !Sub "integrations/${ConnectRouteInteg}"
+
+  ConnectRouteInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ServerlessWebSocketApi
+      Description: Integration for the Connect operation
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RealtimeMessagingFunction.Arn}/invocations
 
   DisconnectRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -42,8 +51,17 @@ Resources:
       ApiId: !Ref ServerlessWebSocketApi
       RouteKey: $disconnect
       AuthorizationType: NONE
-      OperationName: ConnectRoute
-      Target: !Sub "integrations/${WebSocketInteg}"
+      OperationName: Disconnect
+      Target: !Sub "integrations/${DisconnectRouteInteg}"
+
+  DisconnectRouteInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ServerlessWebSocketApi
+      Description: Integration for the Disconnect operation
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RealtimeMessagingFunction.Arn}/invocations
 
   DefaultRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -51,14 +69,14 @@ Resources:
       ApiId: !Ref ServerlessWebSocketApi
       RouteKey: $default
       AuthorizationType: NONE
-      OperationName: ConnectRoute
-      Target: !Sub "integrations/${WebSocketInteg}"
+      OperationName: Default
+      Target: !Sub "integrations/${DefaultRouteInteg}"
 
-  WebSocketInteg:
+  DefaultRouteInteg:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref ServerlessWebSocketApi
-      Description: Websocket Handler Integration
+      Description: Integration for the DefaultRoute operation
       IntegrationType: AWS_PROXY
       IntegrationUri:
         Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RealtimeMessagingFunction.Arn}/invocations
@@ -121,6 +139,8 @@ Resources:
                 - "execute-api:ManageConnections"
               Resource:
                 - !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServerlessWebSocketApi}/*"
+        # - AmazonAPIGatewayInvokeFullAccess
+        # - AmazonAPIGatewayAdministrator
 
   RealtimeMessagingPermission:
     Type: AWS::Lambda::Permission
@@ -183,7 +203,7 @@ Resources:
           Properties:
             Path: /conversations/{convoId}/participants/{userId}
             Method: delete
-        GetAllConversationEventsEvent:
+        GetAllConversationEvents:
           Type: HttpApi
           Properties:
             Path: /conversations/{convoId}/events
